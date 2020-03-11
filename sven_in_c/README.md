@@ -1,77 +1,108 @@
-
 # Simple MQTT Client Demo
 
-This example implement:
-- MQTT Publish the Message
-- MQTT Subscribe the Topic
-- MQTT works with SSL/TLS
-- MQTT works with one-way anthentication
-- MQTT works with two-way anthentication
+# Prerequisites & Setup
+1. Install [Docker](https://docs.docker.com/install/)
+2. Download [SDK](https://github.com/espressif/ESP8266_NONOS_SDK/releases/tag/v2.2.1)
+3. Install python 
+4. Install SDK tooling via Docker image
+```
+docker pull vowstar/esp8266
+```
+5. Clone our MEETUP git repo into `ESP8266_NONOS_SDK` directory https://github.com/jenpaff/hardware-adventures-for-software-enthusiasts/tree/master/sven_in_c
 
-# How to make the Demo work
+# Build Your C Example
 
-### Step 1: Start the MQTT broker
+Run docker image and mount SDK directory
+```
+docker run -ti -e SDK_BASE=/build/ESP_NONOS_SDK -v /path-to-this-directory/ESP8266_NONOS_SDK-2.2.1:/build vowstar/esp8266 /bin/bash
+```
 
-you could choose [mosquitto](https://mosquitto.org) or [EMQTT](https://github.com/emqtt/emqttd) as your MQTT broker
+## Step 0 (Optional): Familiarise yourself with the structure
+/include            --> header files, e.g. mqtt_config.h
+/modules           
+/mqtt
+/user
+    /user_main.c    --> main function
+gen_misc.sh         --> compile script
 
-### Step 2: Configurate your demo
+## Step 1: Configure Wifi and the MQTT Broker 
 
-All you need to configurate are in mqtt_config.h, please according to the comment to modify:
-- CFG_HOLDER
-- MQTT_HOST
-- MQTT_PORT
-- MQTT_CLIENT_ID
+Go to `/include/mqtt_config.h` and configure the following parameters:
 - MQTT_USER
 - MQTT_PASS
 - STA_SSID
 - STA_PASS
-- DEFAULT_SECURITY
-- CA_CERT_FLASH_ADDRESS
-- CLIENT_CERT_FLASH_ADDRESS
 
-### Step 3(optional): Generate your certificate for SSL/TLS
+## Step 2: Explore the main function
 
-if you configurate DEFAULT_SECURITY to ONE_WAY_ANTHENTICATION or TWO_WAY_ANTHENTICATION, please according to [tools/README.txt](../../tools/README.md) to generate your certificate
+Go to `/include/mqtt_config.h` and change "feeds/door" in line 48 to your custom feed name.
+All the MQTT messages will be sent to the MQTT broker. If you are sending your messages to our common broker, give 
+your feed name a different name so you can distinguish your messages.
 
-### Step 4: Build your demo
+Alternatively, you can set up your own broker, e.g. https://www.cloudmqtt.com/
+
+### Step 3: Build your demo
 
 ```
 $./gen_misc.sh
 ```
 
-compile options: 1 1 2 0 5, or others if you are familar to it.
+Compile options: 2 0 3 3 2 
 
-### Step 5: Flash your demo
+Choose boot version: 2 
+Choose bin generate: 0
+Choose spi speed: 3 
+Choose spi mode: 3 
+Choose spi size & map: 2 (512KB+ 512KB)
 
-Any way is OK,such as:
+### Step 4: Check your port 
+
+Check where in which port your ESP is connected
+
 ```
-$~/esp/esp-idf/components/esptool_py/esptool/esptool.py --port /dev/ttyUSB0 --baud 921600 write_flash 0x00000 ~/ESP8266_NONOS_SDK/bin/boot_v1.6.bin 0x1000 ../bin/upgrade/user1.2048.new.5.bin 0x1fe000 ~/ESP8266_NONOS_SDK/bin/blank.bin 0x1fc000 ~/ESP8266_NONOS_SDK/bin/esp_init_data_default.bin
+ls /dev/cu.* # on Mac
+ls /dev/tty.* # on Windows
 ```
 
-### Step 6(optional): Flash your certificate
+It should be e.g. `/dev/cu.usbserial-14140`
 
-Any way is OK, but your flashing address is same as the Step 2,such as:
+### Step 5: Build your demo
+
+Exit Docker and start the flashing process by using the following commands
+
+Go into your SDK directory 
+```
+cd ESP8266_NONOS_SDK
+```
 
 ```
-$~/esp/esp-idf/components/esptool_py/esptool/esptool.py --port /dev/ttyUSB0 --baud 921600 write_flash  0x77000 ~/ESP8266_NONOS_SDK/tools/bin/esp_ca_cert.bin
-$~/esp/esp-idf/components/esptool_py/esptool/esptool.py --port /dev/ttyUSB0 --baud 921600 write_flash  0x78000 ~/MQTTESP8266/tools/bin/esp_cert_private_key.bin
+python ../esptool/esptool.py --port /dev/cu.usbserial-14140 --baud 115200 write_flash 0x00000 bin/eagle.flash.bin  0x10000 bin/eagle.irom0text.bin 0xFE000 bin/blank.bin 0xfc000 bin/esp_init_data_default_v05.bin```
 ```
+
 ### Run the demo and Result Shows
 
-when the demo starts up:
-- it would subscribe the topic `/mqtt/topic/0` , `/mqtt/topic/1` , `/mqtt/topic/2` 
-- it would publish the topic `/mqtt/topic/0` , `/mqtt/topic/1` , `/mqtt/topic/2` 
-- MQTT broker would receive subscribe and publish
+#### Debugging 
+
+If you are debugging, check the main function and uncomment 130-136. When the flashing is done, you can check the serial output with the following command
+```
+picocom -b 115200 /dev/cu.usbserial-14140
+```
+
+The MQTT messages should send to the broker if successful (of course it will only send one status).
+
+#### Prototype testing
+
+Make sure you uncomment lines 138-143. When the flashing is done, plug your ESP into the prototype and check
+the MQTT broker for messages. 
+
 
 ### Troubleshooting
+- Check first via debugging if the Wifi connects correctly and MQTT messages are sending
 
-**why the demo connect the WiFi failed?**
-- try to modify CFG_HOLDER
-
-**why the handshake failed?**
-
-- try to uncomment espconn_secure_set_size and modify memory allocate
-- make sure your MQTT broker SSL/TLS certificate configurate valid 
+# References: 
+https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/general-notes.html
+https://www.espressif.com/sites/default/files/2a-esp8266-sdk_getting_started_guide_en_0.pdf
+https://www.espressif.com/sites/default/files/documentation/esp8266_quick_start_guide_en.pdf
 
 
 
